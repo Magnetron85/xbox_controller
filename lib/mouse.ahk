@@ -30,6 +30,8 @@ class MouseController {
             this.precisionFactor := preferences["precision_factor"]
         if preferences.Has("scroll_ticks_per_haptic")
             this.scrollTicksPerHaptic := preferences["scroll_ticks_per_haptic"]
+        if preferences.Has("max_scroll_rate")
+            this.maxScrollRate := preferences["max_scroll_rate"]
         this.lastMove := A_TickCount
     }
 

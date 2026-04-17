@@ -5,6 +5,7 @@
     "mouse_curve": 1.7,
     "precision_factor": 0.15,
     "scroll_ticks_per_haptic": 5,
+    "max_scroll_rate": 60,
     "hold_confirm_ms": 500,
     "hud_corner": "bottom-right",
     "hud_mode": "fade",
