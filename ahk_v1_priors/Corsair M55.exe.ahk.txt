@@ -1,0 +1,334 @@
+; <COMPILER: v1.1.37.01>
+#NoEnv
+#Warn
+SendMode Input
+SetWorkingDir %A_ScriptDir%
+gestures := [ { gesture: "d", hotkey: "{Left}", humanName: "Previous Protocol" }
+,{ gesture: "u", hotkey: "{Right}", humanName: "Next Protocol" }
+,{ gesture: "l", hotkey: "{PgUp}", humanName: "Previous Series" }
+,{ gesture: "r", hotkey: "{PgDn}", humanName: "Next Series" }
+,{ gesture: "ul", hotkey: "y", humanName: "Measure" }
+,{ gesture: "ur", hotkey: "^a", humanName: "Arrow" }
+,{ gesture: "lu", hotkey: "y", humanName: "Measure" }
+,{ gesture: "ru", hotkey: "^a", humanName: "Arrow" }
+,{ gesture: "rd", hotkey: "[", humanName: "Next Prior" }
+,{ gesture: "dr", hotkey: "[", humanName: "Next Prior" }
+,{ gesture: "ld", hotkey: "]", humanName: "Previous Prior" }
+,{ gesture: "dl", hotkey: "]", humanName: "Previous Prior" }
+,{ gesture: "lr", hotkey: ["^y", "+q"], humanName: "Erase Measurements and Annotations" }
+,{ gesture: "rl", hotkey: ["^y", "+q"], humanName: "Erase Measurements and Annotations" }
+,{ gesture: "ud", hotkey: "s", humanName: "Scroll" }
+,{ gesture: "du", hotkey: "s", humanName: "Scroll" }
+,{ gesture: "rdld", hotkey: "j", humanName: "ROI" }
+,{ gesture: "rld", hotkey: "^t", humanName: "Text" }
+,{ gesture: "udr", hotkey: "{F5}", humanName: "Lung Window" }
+,{ gesture: "udu", hotkey: "{F6}", humanName: "Liver Window" }
+,{ gesture: "uld", hotkey: "ZoomMeasureReset", humanName: "Zoom, Measure, Reset" }
+,{ gesture: "uru", hotkey: "{F7}", humanName: "Bone Window" }
+,{ gesture: "drd", hotkey: "{F4}", humanName: "Soft Tissue Window" }
+,{ gesture: "ldru", hotkey: "^{Backspace}", humanName: "Reset Viewer" }
+,{ gesture: "rdlu", hotkey: "^{Backspace}", humanName: "Reset Viewer" }
+,{ gesture: "rlr", hotkey: "z", humanName: "Zoom" }
+,{ gesture: "rdr", hotkey: "z", humanName: "Zoom" } ]
+rightClickCounter := 0
+clickTimeframe := 250
+longClickThreshold := 500
+fKeys := ["F4", "F5", "F6", "F7"]
+lastRightClickTime := 0
+waitingForSecondRightClick := false
+global resetPressed := false
+lastXButton1ClickTime := 0
+lastXButton2ClickTime := 0
+waitingForSecondXButton1 := false
+waitingForSecondXButton2 := false
+yKeyPressed := false
+Gui, -AlwaysOnTop +Resize
+Gui, Font, s10, Arial
+Gui, Add, Tab3, vMainTab w800 h600, Gesture Reminders|Event Log
+Gui, Tab, 1
+Gui, Add, ListView, r18 w580 vGestureList, Gesture|Hotkey|Action
+for index, item in gestures {
+hotkey := IsObject(item.hotkey) ? item.hotkey[1] . " + " . item.hotkey[2] : item.hotkey
+LV_Add("", item.gesture, hotkey, item.humanName)
+}
+LV_ModifyCol(1, "AutoHdr")
+LV_ModifyCol(2, "AutoHdr")
+LV_ModifyCol(3, "AutoHdr")
+Gui, Tab, 2
+Gui, Add, Edit, vEventText w780 h570 ReadOnly
+Gui, +LastFound
+GuiControlGet, TabControl, Pos, MainTab
+GuiControlGet, ListView, Pos, GestureList
+totalWidth := ListViewW + 40
+totalHeight := TabControlH + 40
+Gui, Show, w%totalWidth% h%totalHeight%, Corsair M55 Mouse Action Tracker
+UpdateGui(action) {
+global EventText
+currentText := ""
+GuiControlGet, currentText,, EventText
+newText := action . "`n" . currentText
+GuiControl,, EventText, %newText%
+}
+XButton1::
+currentTime := A_TickCount
+timeSinceLastClick := currentTime - lastXButton1ClickTime
+lastXButton1ClickTime := currentTime
+if (waitingForSecondXButton1 and timeSinceLastClick <= clickTimeframe)
+{
+waitingForSecondXButton1 := false
+Send, {F6}
+UpdateGui("Action: Liver Window (XButton1 double-click)")
+}
+else
+{
+waitingForSecondXButton1 := true
+SetTimer, XButton1SingleClickAction, -%clickTimeframe%
+}
+return
+XButton1SingleClickAction:
+if (waitingForSecondXButton1)
+{
+waitingForSecondXButton1 := false
+Send, {F4}
+UpdateGui("Action: Soft Tissue Window (XButton1 single click)")
+}
+return
+XButton2::
+currentTime := A_TickCount
+timeSinceLastClick := currentTime - lastXButton2ClickTime
+lastXButton2ClickTime := currentTime
+if (waitingForSecondXButton2 and timeSinceLastClick <= clickTimeframe)
+{
+waitingForSecondXButton2 := false
+Send, {F7}
+UpdateGui("Action: Bone Window (XButton2 double-click)")
+}
+else
+{
+waitingForSecondXButton2 := true
+SetTimer, XButton2SingleClickAction, -%clickTimeframe%
+}
+return
+XButton2SingleClickAction:
+if (waitingForSecondXButton2)
+{
+waitingForSecondXButton2 := false
+Send, {F5}
+UpdateGui("Action: Lung Window (XButton2 single click)")
+}
+return
+RButton::
+if (GetKeyState("LButton", "P"))
+{
+ToggleYKey()
+return
+}
+currentTime := A_TickCount
+timeSinceLastClick := currentTime - lastRightClickTime
+lastRightClickTime := currentTime
+if (waitingForSecondRightClick and timeSinceLastClick <= clickTimeframe)
+{
+waitingForSecondRightClick := false
+rightClickCounter := Mod(rightClickCounter + 1, 4)
+fKey := fKeys[rightClickCounter + 1]
+Send, {%fKey%}
+UpdateGui("Action: " . fKey . " sent (double-click)")
+}
+else
+{
+waitingForSecondRightClick := true
+SetTimer, RightClickAction, -%clickTimeframe%
+}
+return
+RightClickAction:
+if (waitingForSecondRightClick)
+{
+waitingForSecondRightClick := false
+if (GetKeyState("RButton", "P"))
+{
+UpdateGui("Action: Long right-click detected (Intellerad window/level adjustment)")
+Send, {w down}
+Send, {LButton Down}
+UpdateGui("Action: W key pressed, Left mouse button held down")
+KeyWait, RButton
+Send, {w up}
+Send, {LButton Up}
+Send, {s down}{s up}
+UpdateGui("Action: W key released, left mouse button released, S key pressed and released")
+}
+else
+{
+Send {RButton}
+UpdateGui("Action: Context menu shown (single click)")
+}
+}
+return
+~LButton::
+if (GetKeyState("RButton", "P"))
+{
+ToggleYKey()
+return
+}
+UpdateGui("Left Click detected")
+return
+MButton::
+PerformOrientationClick()
+UpdateGui("Middle Click detected, starting gesture recognition")
+result := GetMouseGesture(True)
+While GetKeyState("MButton", "P") {
+result := GetMouseGesture()
+ToolTip % result.gesture . (result.humanName ? " - " . result.humanName : "") . " (" . Round(result.similarity * 100) . "% match)"
+Sleep 150
+}
+ToolTip
+if (result.hotkey) {
+if (result.hotkey == "ZoomMeasureReset") {
+PerformZoomMeasureReset()
+} else if (IsObject(result.hotkey)) {
+for index, key in result.hotkey {
+Send % key
+}
+} else {
+Send % result.hotkey
+}
+UpdateGui("Action: Gesture " . result.gesture . " recognized and executed (" . result.humanName . ") with " . Round(result.similarity * 100) . "% similarity")
+}
+else
+{
+UpdateGui("No gesture recognized (Best match: " . Round(result.similarity * 100) . "% similarity)")
+}
+return
+PerformZoomMeasureReset() {
+Send, z
+UpdateGui("Action: Zoom activated")
+KeyWait, LButton, D
+KeyWait, LButton
+Send, y
+UpdateGui("Action: Measure activated")
+KeyWait, LButton, D
+KeyWait, LButton
+Gui, ResetPrompt:New, +AlwaysOnTop +ToolWindow
+MouseGetPos, mouseX, mouseY, windowUnderMouse, controlUnderMouse, 2
+SysGet, monitorCount, MonitorCount
+SysGet, primaryMonitor, MonitorPrimary
+Loop, %monitorCount%
+{
+SysGet, monArea, Monitor, %A_Index%
+if (mouseX >= monAreaLeft && mouseX < monAreaRight && mouseY >= monAreaTop && mouseY < monAreaBottom)
+{
+currentMonitor := A_Index
+break
+}
+}
+guiW := 220
+guiH := 100
+guiX := (mouseX + guiW > monAreaRight) ? monAreaRight - guiW : mouseX
+guiY := (mouseY + guiH > monAreaBottom) ? monAreaBottom - guiH : mouseY
+Gui, ResetPrompt:Add, Text,, Press Reset when ready:
+Gui, ResetPrompt:Add, Button, gResetViewerAction w100, Reset Viewer
+Gui, ResetPrompt:Add, Button, gCancelReset w100, Cancel
+Gui, ResetPrompt:Show, x%guiX% y%guiY% NoActivate, Reset Viewer
+UpdateGui("Action: Reset prompt displayed")
+WinSet, Style, +0x80000, Reset Viewer
+SetTimer, CheckResetPrompt, 100
+return
+ResetViewerAction:
+Gui, ResetPrompt:Destroy
+SetTimer, CheckResetPrompt, Off
+Send, ^{Backspace}
+UpdateGui("Action: Viewer reset (Reset button pressed)")
+return
+CancelReset:
+Gui, ResetPrompt:Destroy
+SetTimer, CheckResetPrompt, Off
+UpdateGui("Action: Reset cancelled (Cancel button pressed)")
+return
+CheckResetPrompt:
+if (!WinExist("Reset Viewer"))
+{
+SetTimer, CheckResetPrompt, Off
+if (!A_GuiEvent)
+UpdateGui("Action: Reset prompt closed (Window closed)")
+}
+return
+}
+ResetPromptGuiClose:
+ResetPromptGuiEscape:
+Gui, ResetPrompt:Destroy
+SetTimer, CheckResetPrompt, Off
+UpdateGui("Action: Reset prompt closed (Window closed or Esc pressed)")
+return
+~WheelUp::UpdateGui("Wheel Up detected")
+~WheelDown::UpdateGui("Wheel Down detected")
+^+c::
+GuiControl,, EventText, Log Cleared
+return
+^Esc::ExitApp
+GuiClose:
+ExitApp
+GetMouseGesture(reset := false) {
+Static xpos1, ypos1, xpos2, ypos2, currentGesture
+global gestures
+MouseGetPos, xpos2, ypos2
+if (reset) {
+xpos1 := xpos2, ypos1 := ypos2
+currentGesture := ""
+Return {gesture: currentGesture, hotkey: "", humanName: ""}
+}
+dx := xpos2 - xpos1, dy := ypos1 - ypos2
+if (abs(dy) >= abs(dx))
+track := dy > 0 ? "u" : "d"
+else
+track := dx > 0 ? "r" : "l"
+if (abs(dy) < 6 and abs(dx) < 6)
+track := ""
+xpos1 := xpos2, ypos1 := ypos2
+if (track != SubStr(currentGesture, 0, 1))
+currentGesture .= track
+return EvaluateGesture(currentGesture)
+}
+EvaluateGesture(currentGesture) {
+global gestures
+bestMatch := ""
+bestMatchScore := 0
+gestureLength := StrLen(currentGesture)
+for gestureIndex, gestureItem in gestures {
+similarity := CalculateSimilarity(currentGesture, gestureItem.gesture)
+if (similarity > bestMatchScore) {
+bestMatch := gestureItem
+bestMatchScore := similarity
+}
+}
+if (bestMatchScore >= 0.7) {
+return {gesture: bestMatch.gesture, hotkey: bestMatch.hotkey, humanName: bestMatch.humanName, similarity: bestMatchScore}
+} else {
+return {gesture: currentGesture, hotkey: "", humanName: "", similarity: bestMatchScore}
+}
+}
+CalculateSimilarity(gesture1, gesture2) {
+len1 := StrLen(gesture1)
+len2 := StrLen(gesture2)
+maxLen := Max(len1, len2)
+if (maxLen == 0)
+return 1.0
+commonPrefix := 0
+while (commonPrefix < len1 && commonPrefix < len2 && SubStr(gesture1, commonPrefix+1, 1) == SubStr(gesture2, commonPrefix+1, 1))
+commonPrefix++
+return commonPrefix / maxLen
+}
+ToggleYKey() {
+global yKeyPressed
+if (yKeyPressed) {
+Send, {y up}
+UpdateGui("Action: Y key released (simultaneous left and right click)")
+yKeyPressed := false
+} else {
+Send, {y down}
+UpdateGui("Action: Y key pressed (simultaneous left and right click)")
+yKeyPressed := true
+}
+}
+PerformOrientationClick() {
+Click
+Sleep, 50
+}

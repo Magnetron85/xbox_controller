@@ -1,0 +1,143 @@
+; <COMPILER: v1.1.37.01>
+#NoEnv
+#SingleInstance force
+SetWorkingDir %A_ScriptDir%
+SetTitleMatchMode, 2
+global PS360_WINDOW := "PowerScribe"
+global doubleClickTime := 400
+global lastClickTime := 0
+`::
+WinActivate, PowerScribe
+Send, {F4}
+Return
+^1::
+WinActivate, PowerScribe
+Send, +{Tab}
+Return
+^2::
+WinActivate, PowerScribe
+Send, {Tab}
+Return
+^m::
+If WinExist(PS360_WINDOW)
+{
+WinGet, winState, MinMax, %PS360_WINDOW%
+If (winState = -1)
+{
+WinActivate, %PS360_WINDOW%
+WinMaximize, %PS360_WINDOW%
+}
+Else If (winState = 1)
+{
+WinMinimize, %PS360_WINDOW%
+}
+Else
+{
+WinActivate, %PS360_WINDOW%
+WinMaximize, %PS360_WINDOW%
+}
+}
+Return
+F13::
+WinActivate, InteleViewer
+Send, {F5}
+Return
+F14::
+WinActivate, InteleViewer
+Send, {F4}
+Return
+F15::
+WinActivate, InteleViewer
+Send, {F6}
+Return
+F16::
+WinActivate, InteleViewer
+Send, {F7}
+Return
+F17::
+WinActivate, InteleViewer
+Send, {F8}
+Return
+F18::
+WinActivate, InteleViewer
+Send, {s}
+Return
+F19::
+WinActivate, InteleViewer
+Send, {y}
+Return
+F20::
+WinActivate, InteleViewer
+Send, {j}
+Return
+F21::
+WinActivate, InteleViewer
+Send, {b}
+Return
+F22::
+WinActivate, InteleViewer
+Send, ^{a}
+Return
+F23::
+WinActivate, InteleViewer
+Send, ^y
+Send, +q
+Return
+F24::
+global LButtonState
+if (LButtonState != 1) {
+LButtonState := 1
+Send {LButton down}
+ToolTip, SCROLLING ACTIVE, % A_MouseX + 20, % A_MouseY + 10
+} else {
+LButtonState := 0
+Send {LButton up}
+ToolTip
+}
+Return
+^F15::
+WinActivate, InteleViewer
+Send, {Left}
+Return
+^F16::
+WinActivate, InteleViewer
+Send, {Right}
+Return
+^F17::
+WinActivate, InteleViewer
+Send, {PgUp}
+Return
+^F18::
+WinActivate, InteleViewer
+Send, {PgDn}
+Return
+^F19::
+WinActivate, InteleViewer
+Send, {o}
+Return
+^F20::
+WinActivate, InteleViewer
+Send, {i}
+Return
+^F21::
+WinActivate, InteleViewer
+Send, +c
+Return
+^F22::
+WinActivate, InteleViewer
+Send, {g}
+Return
+^F23::
+WinActivate, InteleViewer
+Send, +r
+Send, {LButton down}
+MouseMove, 0, 10, 0, R
+Send, {LButton up}
+Return
+^F24::
+WinActivate, InteleViewer
+Send, +r
+Send, {LButton down}
+MouseMove, 0, -10, 0, R
+Send, {LButton up}
+Return

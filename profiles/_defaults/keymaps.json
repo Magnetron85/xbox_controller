@@ -1,0 +1,46 @@
+{
+  "scroll_up":        { "target": "pacs", "keys": "{WheelUp}",    "haptic": "",               "label": "scroll up" },
+  "scroll_down":      { "target": "pacs", "keys": "{WheelDown}",  "haptic": "",               "label": "scroll down" },
+
+  "series_prev":      { "target": "pacs", "keys": "{PgUp}",       "haptic": "series_change",  "label": "prev series" },
+  "series_next":      { "target": "pacs", "keys": "{PgDn}",       "haptic": "series_change",  "label": "next series" },
+
+  "prior_prev":       { "target": "pacs", "keys": "]",            "haptic": "prior_change",   "label": "prev prior" },
+  "prior_next":       { "target": "pacs", "keys": "[",            "haptic": "prior_change",   "label": "next prior" },
+
+  "hanging_prev":     { "target": "pacs", "keys": "{Left}",       "haptic": "hp_change",      "label": "HP back" },
+  "hanging_next":     { "target": "pacs", "keys": "{Right}",      "haptic": "hp_change",      "label": "HP forward" },
+
+  "windowing_cycle":  { "target": "pacs", "cycle": ["{F4}", "{F5}", "{F6}", "{F7}"],
+                         "haptic": "windowing", "label": "windowing" },
+
+  "measure_toggle":   { "target": "pacs", "keys": "y",            "haptic": "",               "label": "measure" },
+  "arrow":            { "target": "pacs", "keys": "^a",           "haptic": "",               "label": "arrow" },
+  "roi":              { "target": "pacs", "keys": "j",            "haptic": "",               "label": "ROI" },
+  "text_annot":       { "target": "pacs", "keys": "^t",           "haptic": "",               "label": "text" },
+
+  "mpr_cycle":        { "target": "pacs", "keys": "m",            "haptic": "",               "label": "MPR" },
+  "crosshair_toggle": { "target": "pacs", "keys": "c",            "haptic": "",               "label": "crosshair" },
+  "link_toggle":      { "target": "pacs", "keys": "l",            "haptic": "",               "label": "link" },
+  "three_d":          { "target": "pacs", "keys": "^3",           "haptic": "",               "label": "3D" },
+
+  "erase_last":       { "target": "pacs", "keys": "^z",           "haptic": "",               "label": "undo" },
+  "erase_all":        { "target": "pacs", "keys": "^y+q",         "haptic": "destructive_fire", "label": "erase all" },
+  "reset_viewer":     { "target": "pacs", "keys": "^{Backspace}", "haptic": "destructive_fire", "label": "reset viewer" },
+
+  "wl_drag_begin":    { "target": "script", "keys": "", "haptic": "",               "label": "W/L drag" },
+  "wl_drag_end":      { "target": "script", "keys": "", "haptic": "",               "label": "W/L end" },
+
+  "dictate_toggle":   { "target": "powerscribe", "keys": "{F4}",    "haptic": "dictate_on",  "label": "dictate" },
+  "ps_field_prev":    { "target": "powerscribe", "keys": "+{Tab}",  "haptic": "",            "label": "prev field" },
+  "ps_field_next":    { "target": "powerscribe", "keys": "{Tab}",   "haptic": "",            "label": "next field" },
+
+  "mouse_lclick":     { "target": "mouse",  "keys": "", "haptic": "",               "label": "L-click" },
+  "mouse_rclick":     { "target": "mouse",  "keys": "", "haptic": "",               "label": "R-click" },
+  "mouse_mclick":     { "target": "mouse",  "keys": "", "haptic": "",               "label": "M-click" },
+  "mouse_ldown":      { "target": "mouse",  "keys": "", "haptic": "",               "label": "L-down" },
+  "mouse_lup":        { "target": "mouse",  "keys": "", "haptic": "",               "label": "L-up" },
+  "precision_toggle": { "target": "mouse",  "keys": "", "haptic": "",               "label": "precision" },
+
+  "hud_toggle":       { "target": "script", "keys": "", "haptic": "",               "label": "HUD" }
+}

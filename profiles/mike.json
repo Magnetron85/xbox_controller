@@ -1,0 +1,38 @@
+{
+  "name": "Mike",
+  "preferences": {
+    "mouse_speed": 10000,
+    "mouse_curve": 1.7,
+    "precision_factor": 0.15,
+    "scroll_ticks_per_haptic": 5,
+    "hold_confirm_ms": 500,
+    "hud_corner": "bottom-right",
+    "hud_mode": "fade",
+    "hud_alpha": 225,
+    "hud_fade_in_ms": 120,
+    "hud_hold_ms": 1500,
+    "hud_fade_out_ms": 700
+  },
+  "bindings": {
+    "a":          { "on_down": "mouse_ldown", "on_up": "mouse_lup" },
+    "b":          { "tap": "mouse_rclick" },
+    "x":          { "tap": "measure_toggle", "hold": "arrow" },
+    "y":          { "tap": "roi",            "hold": "text_annot" },
+    "lb":         { "tap": "windowing_cycle","hold": "wl_drag_begin", "on_up_if_held": "wl_drag_end" },
+    "rb":         { "tap": "dictate_toggle" },
+    "ls_click":   { "tap": "precision_toggle","hold": "hud_toggle" },
+    "rs_click":   { "tap": "mouse_mclick" },
+    "dpad_up":    { "tap": "series_prev" },
+    "dpad_down":  { "tap": "series_next" },
+    "dpad_left":  { "tap": "prior_prev" },
+    "dpad_right": { "tap": "prior_next" },
+    "view":       { "tap": "mpr_cycle",      "hold": "reset_viewer", "hold_warn_haptic": "destructive_warn" },
+    "menu":       { "tap": "erase_last",     "hold": "erase_all",    "hold_warn_haptic": "destructive_warn" }
+  },
+  "axis_bindings": {
+    "stick_l_up":    "ps_field_prev",
+    "stick_l_down":  "ps_field_next",
+    "stick_l_left":  "hanging_prev",
+    "stick_l_right": "hanging_next"
+  }
+}

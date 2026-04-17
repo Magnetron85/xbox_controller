@@ -1,0 +1,11 @@
+# Build artifacts
+*.exe
+
+# Runtime logs
+hud.log
+diagnose.log
+*.out
+*.tmp
+
+# Local Claude Code config
+.claude/

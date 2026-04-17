@@ -1,0 +1,17 @@
+{
+  "pacs": {
+    "win_match": [
+      "ahk_exe InteleViewer.exe",
+      "ahk_class IntelePACS",
+      "InteleViewer"
+    ]
+  },
+  "powerscribe": {
+    "win_match": [
+      "ahk_exe Nuance.PowerScribe360.exe",
+      "ahk_class PowerScribe360",
+      "ahk_exe PowerScribe.exe",
+      "PowerScribe"
+    ]
+  }
+}
