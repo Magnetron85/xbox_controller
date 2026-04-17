@@ -18,9 +18,6 @@
   "windowing_liver":  { "target": "pacs", "keys": "{F6}", "haptic": "windowing", "label": "liver" },
   "windowing_bone":   { "target": "pacs", "keys": "{F7}", "haptic": "windowing", "label": "bone" },
 
-  "zoom_in":          { "target": "pacs", "keys": "{NumpadAdd}", "haptic": "", "label": "zoom in" },
-  "zoom_out":         { "target": "pacs", "keys": "{NumpadSub}", "haptic": "", "label": "zoom out" },
-
   "ps_visibility_toggle": { "target": "script", "keys": "", "haptic": "", "label": "PS show/hide" },
 
   "measure_toggle":   { "target": "pacs", "keys": "y",            "haptic": "",               "label": "measure" },

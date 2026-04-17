@@ -14,7 +14,9 @@
     "hud_fade_out_ms": 700,
     "chord_window_ms": 200,
     "stick_chord_engage": 0.6,
-    "stick_chord_release": 0.3
+    "stick_chord_release": 0.3,
+    "zoom_drag_speed_px_per_sec": 500,
+    "zoom_drag_restore_cursor": true
   },
   "bindings": {
     "a":          { "tap": "windowing_soft" },
@@ -40,9 +42,5 @@
   },
   "chords": {
     "ls_click+rs_click": "ps_visibility_toggle"
-  },
-  "stick_chords": {
-    "both_up":   "zoom_in",
-    "both_down": "zoom_out"
   }
 }

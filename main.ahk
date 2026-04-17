@@ -40,14 +40,19 @@ parseArgs()
 ; EventEmitter) would collide with same-named variables. Globals here get a g_ prefix.
 global g_bindings, g_axis_bindings, g_targets, g_keymaps, g_profile, g_prefs
 global g_hud, g_dispatcher, g_haptics, g_mouse, g_emitter, g_wl_active
-global g_chords, g_stick_chords
+global g_chords
 global g_chord_press_time := Map()      ; button name -> tickcount when pressed (cleared on release)
-global g_chord_active := Map()          ; button name -> true while a chord is "owning" this button
 global g_chord_consumed := Map()        ; button name -> true when chord just fired; suppresses next tap/hold/double
 global g_chord_window_ms := 200
-global g_stick_chord_state := "idle"    ; "idle" | "up" | "down" | "release_wait"
+global g_stick_chord_state := "idle"    ; "idle" | "up" | "down"
 global g_stick_chord_engage := 0.6
 global g_stick_chord_release := 0.3
+global g_zoom_active := false
+global g_zoom_direction := ""           ; "in" or "out"
+global g_zoom_drag_speed := 500         ; px/sec at full deflection
+global g_zoom_restore_cursor := true
+global g_zoom_start_x := 0
+global g_zoom_start_y := 0
 
 ; --- load profile + defaults ---
 bundle := LoadProfileBundle(PROFILE_NAME)
@@ -60,13 +65,16 @@ g_prefs := g_profile.Has("preferences") ? g_profile["preferences"] : Map()
 g_bindings := g_profile.Has("bindings") ? g_profile["bindings"] : Map()
 g_axis_bindings := g_profile.Has("axis_bindings") ? g_profile["axis_bindings"] : Map()
 g_chords := g_profile.Has("chords") ? g_profile["chords"] : Map()
-g_stick_chords := g_profile.Has("stick_chords") ? g_profile["stick_chords"] : Map()
 if g_prefs.Has("chord_window_ms")
     g_chord_window_ms := g_prefs["chord_window_ms"]
 if g_prefs.Has("stick_chord_engage")
     g_stick_chord_engage := g_prefs["stick_chord_engage"]
 if g_prefs.Has("stick_chord_release")
     g_stick_chord_release := g_prefs["stick_chord_release"]
+if g_prefs.Has("zoom_drag_speed_px_per_sec")
+    g_zoom_drag_speed := g_prefs["zoom_drag_speed_px_per_sec"]
+if g_prefs.Has("zoom_drag_restore_cursor")
+    g_zoom_restore_cursor := g_prefs["zoom_drag_restore_cursor"]
 
 ; --- init subsystems ---
 if (!XInput.Init()) {
@@ -256,11 +264,63 @@ HandleEvent(eventName, data) {
 
 g_emitter.Subscribe(HandleEvent)
 
-; --- stick chord: both sticks tilted same direction past threshold = e.g. zoom in/out.
-; Returns true while the chord is active (so the caller can suppress cursor + left-stick-dir).
-; Fires the bound action exactly once per engagement; releasing both sticks fully resets.
+; --- InteleViewer-style zoom: middle-mouse-button drag.
+; Press both sticks up = MMB down + drag cursor up (zoom in).
+; Press both sticks down = MMB down + drag cursor down (zoom out).
+; Drag rate is proportional to stick deflection. Cursor restored on release if pref set.
+
+ZoomDragBegin(direction) {
+    global g_zoom_active, g_zoom_direction, g_zoom_start_x, g_zoom_start_y, g_targets, SIMULATE, g_hud
+    if (g_zoom_active)
+        return
+    g_zoom_direction := direction
+    g_zoom_active := true
+    if (!SIMULATE && g_targets.Has("pacs")) {
+        for wintitle in g_targets["pacs"]["win_match"] {
+            if WinExist(wintitle) {
+                if (!WinActive(wintitle)) {
+                    WinActivate(wintitle)
+                    Sleep(20)
+                }
+                break
+            }
+        }
+    }
+    MouseGetPos(&x, &y)
+    g_zoom_start_x := x
+    g_zoom_start_y := y
+    if (!SIMULATE)
+        Click("Middle Down")
+    g_hud.ShowAction(direction = "in" ? "zoom in" : "zoom out")
+}
+
+ZoomDragTick(magY) {
+    global g_zoom_active, g_zoom_direction, g_zoom_drag_speed, POLL_MS, SIMULATE
+    if (!g_zoom_active || SIMULATE)
+        return
+    delta := g_zoom_drag_speed * magY * (POLL_MS / 1000.0)
+    MouseGetPos(&x, &y)
+    new_y := (g_zoom_direction = "in") ? y - delta : y + delta
+    DllCall("SetCursorPos", "Int", x, "Int", Round(new_y))
+}
+
+ZoomDragEnd() {
+    global g_zoom_active, g_zoom_start_x, g_zoom_start_y, g_zoom_restore_cursor, SIMULATE, g_hud
+    if (!g_zoom_active)
+        return
+    g_zoom_active := false
+    if (!SIMULATE) {
+        Click("Middle Up")
+        if (g_zoom_restore_cursor)
+            DllCall("SetCursorPos", "Int", g_zoom_start_x, "Int", g_zoom_start_y)
+    }
+    g_hud.ShowAction("zoom done")
+}
+
+; --- stick chord: both sticks tilted same direction past threshold.
+; Returns true while latched so the caller can suppress cursor and left-stick-dir.
 DetectStickChord(state) {
-    global g_stick_chord_state, g_stick_chord_engage, g_stick_chord_release, g_stick_chords, g_dispatcher
+    global g_stick_chord_state, g_stick_chord_engage, g_stick_chord_release
     ly := state["ly"]
     ry := state["ry"]
     mag_l := Sqrt(state["lx"]**2 + ly**2)
@@ -269,22 +329,20 @@ DetectStickChord(state) {
     if (g_stick_chord_state = "idle") {
         if (ly > g_stick_chord_engage && ry > g_stick_chord_engage) {
             g_stick_chord_state := "up"
-            if g_stick_chords.Has("both_up")
-                g_dispatcher.Invoke(g_stick_chords["both_up"], "chord")
+            ZoomDragBegin("in")
             return true
         }
         if (ly < -g_stick_chord_engage && ry < -g_stick_chord_engage) {
             g_stick_chord_state := "down"
-            if g_stick_chords.Has("both_down")
-                g_dispatcher.Invoke(g_stick_chords["both_down"], "chord")
+            ZoomDragBegin("out")
             return true
         }
         return false
     }
 
-    ; In a chord state - wait for both sticks to release before going idle.
     if (mag_l < g_stick_chord_release && mag_r < g_stick_chord_release) {
         g_stick_chord_state := "idle"
+        ZoomDragEnd()
         return false
     }
     return true
@@ -298,8 +356,12 @@ Poll() {
     if (!state)
         return
     inStickChord := DetectStickChord(state)
-    if (!inStickChord)
+    if (inStickChord) {
+        magY := (Abs(state["ly"]) + Abs(state["ry"])) / 2.0
+        ZoomDragTick(magY)
+    } else {
         g_mouse.UpdateStick(state["rx"], state["ry"])
+    }
     g_mouse.UpdateScrollTriggers(state["ltrig"], state["rtrig"])
     g_emitter.Update(state, inStickChord)
 }
