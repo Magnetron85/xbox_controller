@@ -44,6 +44,12 @@ global g_chords
 global g_chord_press_time := Map()      ; button name -> tickcount when pressed (cleared on release)
 global g_chord_consumed := Map()        ; button name -> true when chord just fired; suppresses next tap/hold/double
 global g_chord_window_ms := 200
+global g_chord_hold_ms := 500           ; how long both buttons must be held for chord "hold"
+global g_chord_hold_warn_ms := 150      ; delay before warn haptic plays (quick taps stay silent)
+global g_active_chord_str := ""         ; "ls_click+rs_click" while a hold-capable chord is in flight
+global g_active_chord_start := 0
+global g_active_chord_hold_fired := false
+global g_active_chord_warn_played := false
 global g_stick_chord_state := "idle"    ; "idle" | "up" | "down"
 global g_stick_chord_engage := 0.6
 global g_stick_chord_release := 0.3
@@ -67,6 +73,10 @@ g_axis_bindings := g_profile.Has("axis_bindings") ? g_profile["axis_bindings"] :
 g_chords := g_profile.Has("chords") ? g_profile["chords"] : Map()
 if g_prefs.Has("chord_window_ms")
     g_chord_window_ms := g_prefs["chord_window_ms"]
+if g_prefs.Has("chord_hold_ms")
+    g_chord_hold_ms := g_prefs["chord_hold_ms"]
+if g_prefs.Has("chord_hold_warn_ms")
+    g_chord_hold_warn_ms := g_prefs["chord_hold_warn_ms"]
 if g_prefs.Has("stick_chord_engage")
     g_stick_chord_engage := g_prefs["stick_chord_engage"]
 if g_prefs.Has("stick_chord_release")
@@ -163,24 +173,37 @@ PsVisibilityToggle() {
 ; --- event wiring ---
 g_emitter := EventEmitter()
 
-; Returns true if a chord matched and was fired, in which case all member buttons
-; are marked "consumed" so their tap/hold/double/on_down/on_up will be suppressed
-; until the next clean press of that button.
+; Chord config may be a plain action string (tap-only, fires immediately)
+; or a Map with any of: "tap", "hold", "hold_warn_haptic".
+; Returns the normalized Map form.
+NormalizeChordConfig(cfg) {
+    if (Type(cfg) = "Map")
+        return cfg
+    m := Map()
+    m["tap"] := cfg
+    return m
+}
+
+IsChordMember(btn, chord_str) {
+    for m in StrSplit(chord_str, "+")
+        if (m = btn)
+            return true
+    return false
+}
+
+; Called from button_down. If a chord is now satisfied (this button + other members
+; all pressed within the chord window), fire it or start its hold state machine.
+; Marks all chord members as "consumed" so their individual tap/hold/double/on_down/
+; on_up bindings stay silent until the next clean press of each button.
 CheckChords(triggerBtn) {
     global g_chords, g_chord_press_time, g_chord_consumed, g_chord_window_ms, g_dispatcher
+    global g_active_chord_str, g_active_chord_start, g_active_chord_hold_fired, g_active_chord_warn_played
     now := A_TickCount
-    for chord_str, action in g_chords {
+    for chord_str, raw in g_chords {
         members := StrSplit(chord_str, "+")
         if (members.Length < 2)
             continue
-        is_member := false
-        for m in members {
-            if (m = triggerBtn) {
-                is_member := true
-                break
-            }
-        }
-        if (!is_member)
+        if (!IsChordMember(triggerBtn, chord_str))
             continue
         all_in := true
         for m in members {
@@ -189,14 +212,47 @@ CheckChords(triggerBtn) {
                 break
             }
         }
-        if (all_in) {
-            g_dispatcher.Invoke(action, "chord")
-            for m in members
-                g_chord_consumed[m] := true
-            return true
+        if (!all_in)
+            continue
+
+        config := NormalizeChordConfig(raw)
+        for m in members
+            g_chord_consumed[m] := true
+
+        if (config.Has("hold")) {
+            ; Hold-capable chord: wait. Poll() fires the hold action once held past
+            ; g_chord_hold_ms; button_up of any member fires the tap action if the
+            ; hold hasn't fired yet.
+            g_active_chord_str := chord_str
+            g_active_chord_start := now
+            g_active_chord_hold_fired := false
+            g_active_chord_warn_played := false
+        } else if (config.Has("tap")) {
+            ; Simple tap-only chord: fire immediately, no hold tracking.
+            g_dispatcher.Invoke(config["tap"], "chord")
         }
+        return true
     }
     return false
+}
+
+; Called every Poll. While a hold-capable chord is latched, time it out: play the
+; warn haptic at g_chord_hold_warn_ms, fire the hold action at g_chord_hold_ms.
+TickChordHold() {
+    global g_active_chord_str, g_active_chord_start, g_active_chord_hold_fired, g_active_chord_warn_played
+    global g_chords, g_chord_hold_ms, g_chord_hold_warn_ms, g_haptics, g_dispatcher
+    if (g_active_chord_str = "" || g_active_chord_hold_fired)
+        return
+    config := NormalizeChordConfig(g_chords[g_active_chord_str])
+    elapsed := A_TickCount - g_active_chord_start
+    if (config.Has("hold_warn_haptic") && !g_active_chord_warn_played && elapsed >= g_chord_hold_warn_ms) {
+        g_haptics.Play(config["hold_warn_haptic"])
+        g_active_chord_warn_played := true
+    }
+    if (config.Has("hold") && elapsed >= g_chord_hold_ms) {
+        g_dispatcher.Invoke(config["hold"], "chord_hold")
+        g_active_chord_hold_fired := true
+    }
 }
 
 HandleEvent(eventName, data) {
@@ -229,6 +285,18 @@ HandleEvent(eventName, data) {
             btn := data["button"]
             if (g_chord_press_time.Has(btn))
                 g_chord_press_time.Delete(btn)
+            ; If this is a hold-capable chord in flight and we release before the
+            ; hold fired, fire the chord's tap action.
+            if (g_active_chord_str != "" && IsChordMember(btn, g_active_chord_str)) {
+                if (!g_active_chord_hold_fired) {
+                    config := NormalizeChordConfig(g_chords[g_active_chord_str])
+                    if (config.Has("tap"))
+                        g_dispatcher.Invoke(config["tap"], "chord")
+                }
+                g_active_chord_str := ""
+                g_active_chord_hold_fired := false
+                g_active_chord_warn_played := false
+            }
             if (g_chord_consumed.Has(btn))
                 return  ; chord ate this; tap/hold/double will also be suppressed below
             if g_bindings.Has(btn) {
@@ -366,6 +434,7 @@ Poll() {
     }
     g_mouse.UpdateScrollTriggers(state["ltrig"], state["rtrig"])
     g_emitter.Update(state, inStickChord)
+    TickChordHold()
 }
 SetTimer(Poll, POLL_MS)
 

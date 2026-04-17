@@ -13,6 +13,8 @@
     "hud_hold_ms": 1500,
     "hud_fade_out_ms": 700,
     "chord_window_ms": 200,
+    "chord_hold_ms": 500,
+    "chord_hold_warn_ms": 150,
     "stick_chord_engage": 0.6,
     "stick_chord_release": 0.3,
     "zoom_drag_speed_px_per_sec": 500,
@@ -25,13 +27,13 @@
     "y":          { "tap": "windowing_bone" },
     "lb":         { "on_down": "mouse_ldown", "on_up": "mouse_lup", "double": "erase_last" },
     "rb":         { "tap": "mouse_rclick", "hold": "wl_drag_begin", "on_up_if_held": "wl_drag_end" },
-    "ls_click":   { "tap": "precision_toggle", "hold": "hud_toggle" },
+    "ls_click":   { "tap": "precision_toggle" },
     "rs_click":   { "tap": "measure_toggle" },
-    "dpad_up":    { "tap": "series_prev" },
-    "dpad_down":  { "tap": "series_next" },
-    "dpad_left":  { "tap": "prior_prev" },
-    "dpad_right": { "tap": "prior_next" },
-    "view":       { "tap": "roi", "hold": "reset_viewer", "hold_warn_haptic": "destructive_warn" },
+    "dpad_up":    { "tap": "prior_next" },
+    "dpad_down":  { "tap": "prior_prev" },
+    "dpad_left":  { "tap": "series_prev" },
+    "dpad_right": { "tap": "series_next" },
+    "view":       { "tap": "roi", "hold": "hud_toggle" },
     "menu":       { "tap": "dictate_toggle", "hold": "erase_all", "hold_warn_haptic": "destructive_warn" }
   },
   "axis_bindings": {
@@ -41,6 +43,10 @@
     "stick_l_right": "hanging_next"
   },
   "chords": {
-    "ls_click+rs_click": "ps_visibility_toggle"
+    "ls_click+rs_click": {
+      "tap":  "ps_visibility_toggle",
+      "hold": "reset_viewer",
+      "hold_warn_haptic": "destructive_warn"
+    }
   }
 }
