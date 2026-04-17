@@ -40,6 +40,14 @@ parseArgs()
 ; EventEmitter) would collide with same-named variables. Globals here get a g_ prefix.
 global g_bindings, g_axis_bindings, g_targets, g_keymaps, g_profile, g_prefs
 global g_hud, g_dispatcher, g_haptics, g_mouse, g_emitter, g_wl_active
+global g_chords, g_stick_chords
+global g_chord_press_time := Map()      ; button name -> tickcount when pressed (cleared on release)
+global g_chord_active := Map()          ; button name -> true while a chord is "owning" this button
+global g_chord_consumed := Map()        ; button name -> true when chord just fired; suppresses next tap/hold/double
+global g_chord_window_ms := 200
+global g_stick_chord_state := "idle"    ; "idle" | "up" | "down" | "release_wait"
+global g_stick_chord_engage := 0.6
+global g_stick_chord_release := 0.3
 
 ; --- load profile + defaults ---
 bundle := LoadProfileBundle(PROFILE_NAME)
@@ -51,6 +59,14 @@ hapticPatterns := bundle["haptics"]
 g_prefs := g_profile.Has("preferences") ? g_profile["preferences"] : Map()
 g_bindings := g_profile.Has("bindings") ? g_profile["bindings"] : Map()
 g_axis_bindings := g_profile.Has("axis_bindings") ? g_profile["axis_bindings"] : Map()
+g_chords := g_profile.Has("chords") ? g_profile["chords"] : Map()
+g_stick_chords := g_profile.Has("stick_chords") ? g_profile["stick_chords"] : Map()
+if g_prefs.Has("chord_window_ms")
+    g_chord_window_ms := g_prefs["chord_window_ms"]
+if g_prefs.Has("stick_chord_engage")
+    g_stick_chord_engage := g_prefs["stick_chord_engage"]
+if g_prefs.Has("stick_chord_release")
+    g_stick_chord_release := g_prefs["stick_chord_release"]
 
 ; --- init subsystems ---
 if (!XInput.Init()) {
@@ -71,9 +87,10 @@ g_dispatcher.SetMouse(g_mouse)
 
 ; --- script-internal actions ---
 g_wl_active := false
-g_dispatcher.RegisterScript("hud_toggle",     HudToggle)
-g_dispatcher.RegisterScript("wl_drag_begin",  WlDragBegin)
-g_dispatcher.RegisterScript("wl_drag_end",    WlDragEnd)
+g_dispatcher.RegisterScript("hud_toggle",            HudToggle)
+g_dispatcher.RegisterScript("wl_drag_begin",         WlDragBegin)
+g_dispatcher.RegisterScript("wl_drag_end",           WlDragEnd)
+g_dispatcher.RegisterScript("ps_visibility_toggle",  PsVisibilityToggle)
 
 HudToggle() {
     global g_hud
@@ -111,14 +128,74 @@ WlDragEnd() {
     g_hud.ShowAction("W/L drag ended")
 }
 
+; Minimize PowerScribe if visible, else restore + activate. Mirrors v1 PS360 ^m hotkey.
+PsVisibilityToggle() {
+    global g_targets, g_hud
+    if (!g_targets.Has("powerscribe")) {
+        g_hud.Log("ps_visibility_toggle (no powerscribe target)")
+        return
+    }
+    for wintitle in g_targets["powerscribe"]["win_match"] {
+        if WinExist(wintitle) {
+            state := WinGetMinMax(wintitle)
+            if (state = -1) {
+                WinRestore(wintitle)
+                WinActivate(wintitle)
+                g_hud.ShowAction("PS shown")
+            } else {
+                WinMinimize(wintitle)
+                g_hud.ShowAction("PS hidden")
+            }
+            return
+        }
+    }
+    g_hud.Log("ps_visibility_toggle (powerscribe not found)")
+}
+
 ; --- event wiring ---
 g_emitter := EventEmitter()
 
+; Returns true if a chord matched and was fired, in which case all member buttons
+; are marked "consumed" so their tap/hold/double/on_down/on_up will be suppressed
+; until the next clean press of that button.
+CheckChords(triggerBtn) {
+    global g_chords, g_chord_press_time, g_chord_consumed, g_chord_window_ms, g_dispatcher
+    now := A_TickCount
+    for chord_str, action in g_chords {
+        members := StrSplit(chord_str, "+")
+        if (members.Length < 2)
+            continue
+        is_member := false
+        for m in members {
+            if (m = triggerBtn) {
+                is_member := true
+                break
+            }
+        }
+        if (!is_member)
+            continue
+        all_in := true
+        for m in members {
+            if (!g_chord_press_time.Has(m) || now - g_chord_press_time[m] > g_chord_window_ms) {
+                all_in := false
+                break
+            }
+        }
+        if (all_in) {
+            g_dispatcher.Invoke(action, "chord")
+            for m in members
+                g_chord_consumed[m] := true
+            return true
+        }
+    }
+    return false
+}
+
 HandleEvent(eventName, data) {
     global g_bindings, g_axis_bindings, g_dispatcher, g_haptics
+    global g_chord_press_time, g_chord_consumed
     switch eventName {
         case "stick_r", "stick_l", "trigger_l", "trigger_r":
-            ; Continuous axes are polled directly in Poll() — ignore these here.
             return
         case "stick_l_dir":
             key := "stick_l_" data["dir"]
@@ -126,6 +203,12 @@ HandleEvent(eventName, data) {
                 g_dispatcher.Invoke(g_axis_bindings[key], "tap")
         case "button_down":
             btn := data["button"]
+            ; Fresh press: clear any stale consumed flag from a prior chord cycle.
+            g_chord_consumed.Delete(btn)
+            g_chord_press_time[btn] := A_TickCount
+            chord_fired := CheckChords(btn)
+            if (chord_fired)
+                return  ; chord owns this press; skip on_down + haptic warn
             if g_bindings.Has(btn) {
                 bind := g_bindings[btn]
                 if bind.Has("hold_warn_haptic")
@@ -135,6 +218,9 @@ HandleEvent(eventName, data) {
             }
         case "button_up":
             btn := data["button"]
+            g_chord_press_time.Delete(btn)
+            if (g_chord_consumed.Has(btn))
+                return  ; chord ate this; tap/hold/double will also be suppressed below
             if g_bindings.Has(btn) {
                 bind := g_bindings[btn]
                 if (bind.Has("on_up_if_held") && data["held_ms"] >= 500) {
@@ -145,20 +231,64 @@ HandleEvent(eventName, data) {
             }
         case "tap":
             btn := data["button"]
+            if (g_chord_consumed.Has(btn)) {
+                g_chord_consumed.Delete(btn)
+                return
+            }
             if g_bindings.Has(btn) && g_bindings[btn].Has("tap")
                 g_dispatcher.Invoke(g_bindings[btn]["tap"], "tap")
         case "hold":
             btn := data["button"]
+            if (g_chord_consumed.Has(btn))
+                return  ; keep flag set; button still down, button_up will see it
             if g_bindings.Has(btn) && g_bindings[btn].Has("hold")
                 g_dispatcher.Invoke(g_bindings[btn]["hold"], "hold")
         case "double_tap":
             btn := data["button"]
+            if (g_chord_consumed.Has(btn)) {
+                g_chord_consumed.Delete(btn)
+                return
+            }
             if g_bindings.Has(btn) && g_bindings[btn].Has("double")
                 g_dispatcher.Invoke(g_bindings[btn]["double"], "double")
     }
 }
 
 g_emitter.Subscribe(HandleEvent)
+
+; --- stick chord: both sticks tilted same direction past threshold = e.g. zoom in/out.
+; Returns true while the chord is active (so the caller can suppress cursor + left-stick-dir).
+; Fires the bound action exactly once per engagement; releasing both sticks fully resets.
+DetectStickChord(state) {
+    global g_stick_chord_state, g_stick_chord_engage, g_stick_chord_release, g_stick_chords, g_dispatcher
+    ly := state["ly"]
+    ry := state["ry"]
+    mag_l := Sqrt(state["lx"]**2 + ly**2)
+    mag_r := Sqrt(state["rx"]**2 + ry**2)
+
+    if (g_stick_chord_state = "idle") {
+        if (ly > g_stick_chord_engage && ry > g_stick_chord_engage) {
+            g_stick_chord_state := "up"
+            if g_stick_chords.Has("both_up")
+                g_dispatcher.Invoke(g_stick_chords["both_up"], "chord")
+            return true
+        }
+        if (ly < -g_stick_chord_engage && ry < -g_stick_chord_engage) {
+            g_stick_chord_state := "down"
+            if g_stick_chords.Has("both_down")
+                g_dispatcher.Invoke(g_stick_chords["both_down"], "chord")
+            return true
+        }
+        return false
+    }
+
+    ; In a chord state - wait for both sticks to release before going idle.
+    if (mag_l < g_stick_chord_release && mag_r < g_stick_chord_release) {
+        g_stick_chord_state := "idle"
+        return false
+    }
+    return true
+}
 
 ; --- polling loop ---
 global POLL_MS := 8  ; ~125 Hz
@@ -167,9 +297,11 @@ Poll() {
     state := XInput.GetState(0)
     if (!state)
         return
-    g_mouse.UpdateStick(state["rx"], state["ry"])
+    inStickChord := DetectStickChord(state)
+    if (!inStickChord)
+        g_mouse.UpdateStick(state["rx"], state["ry"])
     g_mouse.UpdateScrollTriggers(state["ltrig"], state["rtrig"])
-    g_emitter.Update(state)
+    g_emitter.Update(state, inStickChord)
 }
 SetTimer(Poll, POLL_MS)
 

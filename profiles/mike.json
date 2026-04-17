@@ -11,28 +11,38 @@
     "hud_alpha": 225,
     "hud_fade_in_ms": 120,
     "hud_hold_ms": 1500,
-    "hud_fade_out_ms": 700
+    "hud_fade_out_ms": 700,
+    "chord_window_ms": 200,
+    "stick_chord_engage": 0.6,
+    "stick_chord_release": 0.3
   },
   "bindings": {
-    "a":          { "on_down": "mouse_ldown", "on_up": "mouse_lup" },
-    "b":          { "tap": "mouse_rclick" },
-    "x":          { "tap": "measure_toggle", "hold": "arrow" },
-    "y":          { "tap": "roi",            "hold": "text_annot" },
-    "lb":         { "tap": "windowing_cycle","hold": "wl_drag_begin", "on_up_if_held": "wl_drag_end" },
-    "rb":         { "tap": "dictate_toggle" },
-    "ls_click":   { "tap": "precision_toggle","hold": "hud_toggle" },
-    "rs_click":   { "tap": "mouse_mclick" },
+    "a":          { "tap": "windowing_soft" },
+    "b":          { "tap": "windowing_lung" },
+    "x":          { "tap": "windowing_liver" },
+    "y":          { "tap": "windowing_bone" },
+    "lb":         { "on_down": "mouse_ldown", "on_up": "mouse_lup", "double": "erase_last" },
+    "rb":         { "tap": "mouse_rclick", "hold": "wl_drag_begin", "on_up_if_held": "wl_drag_end" },
+    "ls_click":   { "tap": "precision_toggle", "hold": "hud_toggle" },
+    "rs_click":   { "tap": "measure_toggle" },
     "dpad_up":    { "tap": "series_prev" },
     "dpad_down":  { "tap": "series_next" },
     "dpad_left":  { "tap": "prior_prev" },
     "dpad_right": { "tap": "prior_next" },
-    "view":       { "tap": "mpr_cycle",      "hold": "reset_viewer", "hold_warn_haptic": "destructive_warn" },
-    "menu":       { "tap": "erase_last",     "hold": "erase_all",    "hold_warn_haptic": "destructive_warn" }
+    "view":       { "tap": "roi", "hold": "reset_viewer", "hold_warn_haptic": "destructive_warn" },
+    "menu":       { "tap": "dictate_toggle", "hold": "erase_all", "hold_warn_haptic": "destructive_warn" }
   },
   "axis_bindings": {
     "stick_l_up":    "ps_field_prev",
     "stick_l_down":  "ps_field_next",
     "stick_l_left":  "hanging_prev",
     "stick_l_right": "hanging_next"
+  },
+  "chords": {
+    "ls_click+rs_click": "ps_visibility_toggle"
+  },
+  "stick_chords": {
+    "both_up":   "zoom_in",
+    "both_down": "zoom_out"
   }
 }

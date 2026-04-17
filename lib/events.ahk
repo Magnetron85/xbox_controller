@@ -31,7 +31,7 @@ class EventEmitter {
             fn.Call(eventName, data)
     }
 
-    Update(state) {
+    Update(state, suppressLeftStickDir := false) {
         if (!this.prev) {
             this.prev := state
             return
@@ -80,8 +80,11 @@ class EventEmitter {
         this._Emit("trigger_l", Map("level", state["ltrig"]))
         this._Emit("trigger_r", Map("level", state["rtrig"]))
 
-        ; Discrete cardinal events for left stick — fires once per engagement.
-        this._UpdateStickLDirection(state["lx"], state["ly"])
+        ; Discrete cardinal events for left stick - fires once per engagement.
+        if (!suppressLeftStickDir)
+            this._UpdateStickLDirection(state["lx"], state["ly"])
+        else
+            this.stickLDir := ""  ; reset latch so re-engagement after chord re-fires cleanly
 
         this.prev := state
     }
