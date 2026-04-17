@@ -212,7 +212,8 @@ HandleEvent(eventName, data) {
         case "button_down":
             btn := data["button"]
             ; Fresh press: clear any stale consumed flag from a prior chord cycle.
-            g_chord_consumed.Delete(btn)
+            if (g_chord_consumed.Has(btn))
+                g_chord_consumed.Delete(btn)
             g_chord_press_time[btn] := A_TickCount
             chord_fired := CheckChords(btn)
             if (chord_fired)
@@ -226,7 +227,8 @@ HandleEvent(eventName, data) {
             }
         case "button_up":
             btn := data["button"]
-            g_chord_press_time.Delete(btn)
+            if (g_chord_press_time.Has(btn))
+                g_chord_press_time.Delete(btn)
             if (g_chord_consumed.Has(btn))
                 return  ; chord ate this; tap/hold/double will also be suppressed below
             if g_bindings.Has(btn) {
