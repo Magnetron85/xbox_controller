@@ -4,7 +4,7 @@
     "mouse_speed": 10000,
     "mouse_curve": 1.7,
     "precision_factor": 0.15,
-    "scroll_ticks_per_haptic": 5,
+    "scroll_ticks_per_haptic": 2,
     "max_scroll_rate": 60,
     "hold_confirm_ms": 500,
     "hud_corner": "bottom-right",
