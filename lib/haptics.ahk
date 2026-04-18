@@ -7,6 +7,9 @@ class Haptics {
     pending := []
     idx := 0
     scale := 1.0
+    humL := 0.0           ; sustained vibration target (survives across pattern plays)
+    humR := 0.0
+    isHumming := false
 
     __New(patternMap) {
         this.patterns := patternMap
@@ -17,16 +20,47 @@ class Haptics {
     Play(name, scale := 1.0) {
         if (!this.patterns.Has(name))
             return
-        this.Stop()
+        this._StopPattern()
         this.pending := this.patterns[name]
         this.scale := scale
         this.idx := 1
         this._Next()
     }
 
+    ; Set a sustained vibration that persists until StopHum() or another Hum() call.
+    ; Patterns played via Play() briefly override the hum; the hum resumes when the
+    ; pattern ends. Safe to call every poll - won't restart an in-progress pattern.
+    Hum(l, r) {
+        if (l > 1.0)
+            l := 1.0
+        if (r > 1.0)
+            r := 1.0
+        this.humL := l
+        this.humR := r
+        this.isHumming := true
+        if (!this._PatternInProgress())
+            XInput.SetVibration(0, l, r)
+    }
+
+    StopHum() {
+        this.isHumming := false
+        this.humL := 0.0
+        this.humR := 0.0
+        if (!this._PatternInProgress())
+            XInput.SetVibration(0, 0, 0)
+    }
+
     Stop() {
+        this._StopPattern()
+        this.StopHum()
+    }
+
+    _PatternInProgress() {
+        return this.idx > 0 && this.idx <= this.pending.Length
+    }
+
+    _StopPattern() {
         SetTimer(ObjBindMethod(this, "_Next"), 0)
-        XInput.SetVibration(0, 0, 0)
         this.pending := []
         this.idx := 0
         this.scale := 1.0
@@ -34,7 +68,14 @@ class Haptics {
 
     _Next() {
         if (this.idx > this.pending.Length) {
-            XInput.SetVibration(0, 0, 0)
+            ; Pattern complete. Resume hum if active, else silent.
+            if (this.isHumming)
+                XInput.SetVibration(0, this.humL, this.humR)
+            else
+                XInput.SetVibration(0, 0, 0)
+            this.pending := []
+            this.idx := 0
+            this.scale := 1.0
             return
         }
         frame := this.pending[this.idx]

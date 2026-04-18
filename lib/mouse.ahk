@@ -11,10 +11,13 @@ class MouseController {
     scrollDeadzone := 0.08
     scrollTicksPerHaptic := 5
     scrollHapticFloor := 0.25   ; min multiplier applied to scroll_tick pattern at slow speeds
+    scrollHumThreshold := 20    ; tps; above this, switch from discrete ticks to sustained hum
+    scrollHumFloor := 0.35      ; hum intensity at the threshold (ramps up to 1.0 at max)
     lastMove := 0
     scrollAccum := 0.0
     scrollHapticCount := 0
     lastScrollLevel := 0.0      ; post-deadzone deflection 0..1, used to scale haptic intensity
+    isHumming := false
     precision := false
     haptics := ""
     hud := ""
@@ -36,6 +39,10 @@ class MouseController {
             this.maxScrollRate := preferences["max_scroll_rate"]
         if preferences.Has("scroll_haptic_floor")
             this.scrollHapticFloor := preferences["scroll_haptic_floor"]
+        if preferences.Has("scroll_hum_threshold")
+            this.scrollHumThreshold := preferences["scroll_hum_threshold"]
+        if preferences.Has("scroll_hum_floor")
+            this.scrollHumFloor := preferences["scroll_hum_floor"]
         this.lastMove := A_TickCount
     }
 
@@ -82,27 +89,50 @@ class MouseController {
             dir := -1
         } else {
             this.scrollAccum := 0
+            this.scrollHapticCount := 0
+            if (this.isHumming) {
+                this.haptics.StopHum()
+                this.isHumming := false
+            }
             return
         }
         rescaled := (level - this.scrollDeadzone) / (1.0 - this.scrollDeadzone)
         this.lastScrollLevel := rescaled
         rate := (rescaled ** 2) * this.maxScrollRate
+
+        ; Emit scroll events at the computed rate (same for either haptic mode).
         this.scrollAccum += rate * dt
         while (this.scrollAccum >= 1.0) {
             this.scrollAccum -= 1.0
-            this._TickScroll(dir)
+            this.dispatcher.Invoke(dir > 0 ? "scroll_up" : "scroll_down", "continuous")
+            this.scrollHapticCount++
         }
-    }
 
-    _TickScroll(dir) {
-        ; Route through dispatcher so it activates PACS window first.
-        this.dispatcher.Invoke(dir > 0 ? "scroll_up" : "scroll_down", "continuous")
-        this.scrollHapticCount++
-        if (this.scrollHapticCount >= this.scrollTicksPerHaptic) {
+        ; Haptic: sustained hum above threshold, discrete ticks below.
+        if (rate >= this.scrollHumThreshold) {
+            ; Map rate in [threshold, maxRate] to intensity [humFloor, 1.0].
+            span := this.maxScrollRate - this.scrollHumThreshold
+            if (span <= 0)
+                intensity := 1.0
+            else {
+                t := (rate - this.scrollHumThreshold) / span
+                if (t > 1.0)
+                    t := 1.0
+                intensity := this.scrollHumFloor + (1.0 - this.scrollHumFloor) * t
+            }
+            this.haptics.Hum(intensity, 0)
+            this.isHumming := true
             this.scrollHapticCount := 0
-            ; Intensity scales with trigger deflection; floor keeps slow ticks perceptible.
-            hapticScale := this.scrollHapticFloor + (1.0 - this.scrollHapticFloor) * this.lastScrollLevel
-            this.haptics.Play("scroll_tick", hapticScale)
+        } else {
+            if (this.isHumming) {
+                this.haptics.StopHum()
+                this.isHumming := false
+            }
+            if (this.scrollHapticCount >= this.scrollTicksPerHaptic) {
+                this.scrollHapticCount := 0
+                hapticScale := this.scrollHapticFloor + (1.0 - this.scrollHapticFloor) * this.lastScrollLevel
+                this.haptics.Play("scroll_tick", hapticScale)
+            }
         }
     }
 

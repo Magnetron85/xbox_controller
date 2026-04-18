@@ -1,5 +1,5 @@
 {
-  "scroll_tick":       [ {"ms": 25,  "l": 0.60, "r": 0.0} ],
+  "scroll_tick":       [ {"ms": 40,  "l": 0.85, "r": 0.0} ],
   "series_change":     [ {"ms": 60,  "l": 0.40, "r": 0.40} ],
   "prior_change":      [ {"ms": 80,  "l": 0.50, "r": 0.00} ],
   "hp_change":         [ {"ms": 80,  "l": 0.00, "r": 0.50} ],
