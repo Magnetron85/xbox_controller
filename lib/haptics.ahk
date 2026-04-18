@@ -6,16 +6,20 @@ class Haptics {
     patterns := Map()
     pending := []
     idx := 0
+    scale := 1.0
 
     __New(patternMap) {
         this.patterns := patternMap
     }
 
-    Play(name) {
+    ; scale is a multiplier (0..1+) applied to L and R motor values of every frame.
+    ; Clamped to [0, 1] per frame. Use 1.0 (default) for baseline patterns.
+    Play(name, scale := 1.0) {
         if (!this.patterns.Has(name))
             return
         this.Stop()
         this.pending := this.patterns[name]
+        this.scale := scale
         this.idx := 1
         this._Next()
     }
@@ -25,6 +29,7 @@ class Haptics {
         XInput.SetVibration(0, 0, 0)
         this.pending := []
         this.idx := 0
+        this.scale := 1.0
     }
 
     _Next() {
@@ -33,7 +38,13 @@ class Haptics {
             return
         }
         frame := this.pending[this.idx]
-        XInput.SetVibration(0, frame[2], frame[3])
+        l := frame[2] * this.scale
+        r := frame[3] * this.scale
+        if (l > 1.0)
+            l := 1.0
+        if (r > 1.0)
+            r := 1.0
+        XInput.SetVibration(0, l, r)
         this.idx++
         SetTimer(ObjBindMethod(this, "_Next"), -frame[1])
     }

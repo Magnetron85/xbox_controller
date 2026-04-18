@@ -10,9 +10,11 @@ class MouseController {
     maxScrollRate := 40
     scrollDeadzone := 0.08
     scrollTicksPerHaptic := 5
+    scrollHapticFloor := 0.25   ; min multiplier applied to scroll_tick pattern at slow speeds
     lastMove := 0
     scrollAccum := 0.0
     scrollHapticCount := 0
+    lastScrollLevel := 0.0      ; post-deadzone deflection 0..1, used to scale haptic intensity
     precision := false
     haptics := ""
     hud := ""
@@ -32,6 +34,8 @@ class MouseController {
             this.scrollTicksPerHaptic := preferences["scroll_ticks_per_haptic"]
         if preferences.Has("max_scroll_rate")
             this.maxScrollRate := preferences["max_scroll_rate"]
+        if preferences.Has("scroll_haptic_floor")
+            this.scrollHapticFloor := preferences["scroll_haptic_floor"]
         this.lastMove := A_TickCount
     }
 
@@ -81,6 +85,7 @@ class MouseController {
             return
         }
         rescaled := (level - this.scrollDeadzone) / (1.0 - this.scrollDeadzone)
+        this.lastScrollLevel := rescaled
         rate := (rescaled ** 2) * this.maxScrollRate
         this.scrollAccum += rate * dt
         while (this.scrollAccum >= 1.0) {
@@ -95,7 +100,9 @@ class MouseController {
         this.scrollHapticCount++
         if (this.scrollHapticCount >= this.scrollTicksPerHaptic) {
             this.scrollHapticCount := 0
-            this.haptics.Play("scroll_tick")
+            ; Intensity scales with trigger deflection; floor keeps slow ticks perceptible.
+            hapticScale := this.scrollHapticFloor + (1.0 - this.scrollHapticFloor) * this.lastScrollLevel
+            this.haptics.Play("scroll_tick", hapticScale)
         }
     }
 
