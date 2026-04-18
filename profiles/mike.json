@@ -45,7 +45,6 @@
   },
   "chords": {
     "ls_click+rs_click": {
-      "tap":  "ps_visibility_toggle",
       "hold": "reset_viewer",
       "hold_warn_haptic": "destructive_warn"
     }
