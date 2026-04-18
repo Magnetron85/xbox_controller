@@ -388,32 +388,45 @@ ZoomDragEnd() {
     g_hud.ShowAction("zoom done")
 }
 
-; --- stick chord: both sticks tilted same direction past threshold.
+; --- stick chord: two sticks tilted in a recognized combination.
 ; Returns true while latched so the caller can suppress cursor and left-stick-dir.
+;   both ↑  = zoom in  (sustained MMB-drag up)
+;   both ↓  = zoom out (sustained MMB-drag down)
+;   LS→ + RS← = PowerScribe show/hide (one-shot)
 DetectStickChord(state) {
     global g_stick_chord_state, g_stick_chord_engage, g_stick_chord_release
+    lx := state["lx"]
     ly := state["ly"]
+    rx := state["rx"]
     ry := state["ry"]
-    mag_l := Sqrt(state["lx"]**2 + ly**2)
-    mag_r := Sqrt(state["rx"]**2 + ry**2)
+    mag_l := Sqrt(lx**2 + ly**2)
+    mag_r := Sqrt(rx**2 + ry**2)
 
     if (g_stick_chord_state = "idle") {
         if (ly > g_stick_chord_engage && ry > g_stick_chord_engage) {
-            g_stick_chord_state := "up"
+            g_stick_chord_state := "zoom_in"
             ZoomDragBegin("in")
             return true
         }
         if (ly < -g_stick_chord_engage && ry < -g_stick_chord_engage) {
-            g_stick_chord_state := "down"
+            g_stick_chord_state := "zoom_out"
             ZoomDragBegin("out")
+            return true
+        }
+        if (lx > g_stick_chord_engage && rx < -g_stick_chord_engage) {
+            g_stick_chord_state := "ps_toggle"
+            PsVisibilityToggle()
             return true
         }
         return false
     }
 
+    ; In a chord - wait for both sticks to release before going idle.
     if (mag_l < g_stick_chord_release && mag_r < g_stick_chord_release) {
+        prev := g_stick_chord_state
         g_stick_chord_state := "idle"
-        ZoomDragEnd()
+        if (prev = "zoom_in" || prev = "zoom_out")
+            ZoomDragEnd()
         return false
     }
     return true
