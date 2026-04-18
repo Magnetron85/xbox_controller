@@ -257,7 +257,8 @@ TickChordHold() {
 
 HandleEvent(eventName, data) {
     global g_bindings, g_axis_bindings, g_dispatcher, g_haptics
-    global g_chord_press_time, g_chord_consumed
+    global g_chord_press_time, g_chord_consumed, g_chords
+    global g_active_chord_str, g_active_chord_hold_fired, g_active_chord_warn_played
     switch eventName {
         case "stick_r", "stick_l", "trigger_l", "trigger_r":
             return
